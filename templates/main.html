@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>EMAILER</title>
+  <style type="text/css">
+    body {
+      width: 100%;
+      min-height: 100vh;
+      margin: 0;
+      padding: 0;
+      background: #111;
+      color: #fff;
+    }
+    .wrapper {
+      display: flex;
+      width: 100;
+      min-height: 100vh;
+      justify-content: center;
+      align-items: center;
+      text-transform: uppercase;
+      font-family: 'Source Code Pro', monospace;
+      font-size: 40px;
+      letter-spacing: 4px;
+      max-width: 55%;
+      margin: 0 auto;
+    }
+  </style>
+  </head>
+  <body>
+    <div class="wrapper">
+      <p>{{ content | safe }}</p>
+    </div>
+  </body>
