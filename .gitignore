@@ -125,3 +125,4 @@ dmypy.json
 
 # Custom items
 client_secret.json
+dump.rdb

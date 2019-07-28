@@ -6,9 +6,15 @@ from sendgrid.helpers.mail import Mail
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import datetime
+from redis import Redis
+import rq
+import time
+
+load_dotenv()
 
 app = Flask(__name__)
-load_dotenv()
+app.redis = Redis.from_url(os.getenv('REDIS_URL'))
+app.tasks = rq.Queue('emailer-tasks', connection=app.redis)
 
 @app.route('/')
 def status_page():
@@ -26,8 +32,11 @@ def api_v1_form():
     utc_now =  datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
 
     html_content = _generate_email_message(request.json)
-    _add_row_to_sheet('Form Submissions', request.json, utc_now)
-    _send_email(html_content, utc_now)
+    sheets_job = app.tasks.enqueue(_add_row_to_sheet, 'Form Submissions', request.json, utc_now)
+    email_job = app.tasks.enqueue(_send_email, html_content, utc_now, request.json)
+
+    print(sheets_job.get_id())
+    print(email_job.get_id())
 
     return '200'
 
@@ -46,6 +55,8 @@ def _generate_email_message(data):
         )
     else:
         return('Something went wrong.')
+
+# REDIS FUNCTIONS #
 
 def _add_row_to_sheet(sheet_name, data, utc_now):
     try:
@@ -77,9 +88,8 @@ def _add_row_to_sheet(sheet_name, data, utc_now):
     except Exception as e:
         return '500'
 
-
-def _send_email(html_content, utc_now):
-    message_source = request.json['sourceForm']
+def _send_email(html_content, utc_now, data):
+    message_source = data['sourceForm']
     subject = ("New form submission from the %s page (%s)" %(message_source, utc_now))
     message = Mail(
         from_email=os.getenv("FROM_EMAIL"),
