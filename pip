@@ -1,7 +1,0 @@
-Collecting gspread
-  Downloading https://files.pythonhosted.org/packages/43/f8/45bd4a1419fd65ecc02eeaceb92f9dc72aca20c32e766a18d495c68006db/gspread-3.1.0-py3-none-any.whl
-Collecting oauth2client
-  Using cached https://files.pythonhosted.org/packages/95/a9/4f25a14d23f0786b64875b91784607c2277eff25d48f915e39ff0cff505a/oauth2client-4.1.3-py2.py3-none-any.whl
-Collecting freeze
-  Using cached https://files.pythonhosted.org/packages/c2/16/ca9fcd75d8c958b2260d521f18d7e697de5d2133fc68fc968feef4a348b6/freeze-1.0.10.tar.gz
-Collecting requirements.txt
