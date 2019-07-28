@@ -34,11 +34,18 @@ def api_v1_form():
 # PRIVATE FUNCTIONS #
 
 def _generate_email_message(data):
-    if data['sourceForm'] == 'contact':
+    if data['sourceForm'] == 'Contact':
         return(
             '<p>You should reach out to them as soon as possible. Here is their message and contact information:</p>' +
             '<p>Name: ' + data["formName"] + '<br />Email: ' + data["formEmail"] + '<br />Message: ' + data['formMessage']
         )
+    elif data['sourceForm'] == 'Team' or data['sourceForm'] == 'Serve':
+        return(
+            '<p>You should reach out to them as soon as possible. Here is their contact information:</p>' +
+            '<p>Name: ' + data["formName"] + '<br />Email: ' + data["formEmail"]
+        )
+    else:
+        return('Something went wrong.')
 
 def _add_row_to_sheet(sheet_name, data, utc_now):
     try:
