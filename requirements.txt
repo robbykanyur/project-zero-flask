@@ -4,4 +4,6 @@ itsdangerous==1.1.0
 Jinja2==2.10.1
 MarkupSafe==1.1.1
 python-dotenv==0.10.3
+python-http-client==3.1.0
+sendgrid==6.0.5
 Werkzeug==0.15.5
