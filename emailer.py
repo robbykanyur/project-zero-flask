@@ -11,12 +11,14 @@ import rq
 import time
 import re
 import stripe
+from flask_cors import CORS
 
 load_dotenv()
 
 app = Flask(__name__)
 app.redis = Redis.from_url(os.getenv('REDIS_URL'))
 app.tasks = rq.Queue('emailer-tasks', connection=app.redis)
+CORS(app)
 
 @app.route('/')
 def status_page():
@@ -38,7 +40,6 @@ def api_v1_form():
     sheets_job = app.tasks.enqueue(_add_row_to_sheet, 'Form Submissions', filtered_data, utc_now)
     email_job = app.tasks.enqueue(_send_email, html_content, utc_now, filtered_data)
 
-
     return '200'
 
 @app.route('/api/v1/charge', methods=['GET','POST'])
@@ -50,19 +51,19 @@ def api_v1_charge():
     stripe_customer = {}
     customer_list = stripe.Customer.list()
 
-    for i, customer in enumerate(customer_list["data"]):
-        if customer["email"] == request.json['customerEmail']:
-            stripe_customer = customer
-            break
-
-    if 'id' not in stripe_customer:
-        stripe_customer = stripe.Customer.create(
-            source="tok_visa",
-            email=request.json['customerEmail'],
-            name=request.json['customerName']
-        )
-
     if request.json['recurring'] == True:
+        for i, customer in enumerate(customer_list["data"]):
+            if customer["email"] == request.json['customerEmail']:
+                stripe_customer = customer
+                break
+
+        if 'id' not in stripe_customer:
+            stripe_customer = stripe.Customer.create(
+                source=request.json['token']['id'],
+                email=request.json['customerEmail'],
+                name=request.json['customerName']
+            )
+
         stripe_plan = stripe.Plan.create(
             amount=request.json['amount'],
             currency="usd",
@@ -76,13 +77,19 @@ def api_v1_charge():
             plan=stripe_plan['id']
         )
 
+        return stripe.Charge.create(
+            customer=stripe_customer['id'],
+            amount=request.json['amount'],
+            currency="usd",
+            receipt_email=request.json['customerEmail'],
+        )
+
     return stripe.Charge.create(
-        customer=stripe_customer['id'],
-        amount=request.json['amount'],
-        currency="usd",
-        receipt_email=request.json['customerEmail'],
-        source="tok_visa"
-    )
+            amount=request.json['amount'],
+            currency="usd",
+            receipt_email=request.json['customerEmail'],
+            source=request.json['token']['id']
+        )
 
 # PRIVATE FUNCTIONS #
 
