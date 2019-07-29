@@ -86,8 +86,8 @@ def api_v1_charge():
         )
 
         customer_info = stripe.Customer.retrieve(stripe_customer['id'])
-        donation_sheet_job = app.tasks.enqueue(_add_row_to_sheet, 'Donations', request.json, stripe_charge, customer_info, utc_now)
-        subscription_sheet_job = app.tasks.enqueue(_add_row_to_sheet, 'Subscriptions', request.json, stripe_subscription, customer_info, utc_now)
+        donations_sheets_job = app.tasks.enqueue(_add_row_to_sheet, 'Donations', request.json, stripe_charge, customer_info, utc_now)
+        subscriptions_sheets_job = app.tasks.enqueue(_add_row_to_sheet, 'Subscriptions', request.json, stripe_subscription, customer_info, utc_now)
 
     if request.json['recurring'] == False:
         stripe_charge = stripe.Charge.create(
@@ -97,7 +97,7 @@ def api_v1_charge():
             source=request.json['token']['id']
         )
 
-        donatino_sheet_job = app.tasks.enqueue(_add_row_to_sheet, 'Donations', request.json, stripe_charge, [], utc_now)
+        donations_sheets_job = app.tasks.enqueue(_add_row_to_sheet, 'Donations', request.json, stripe_charge, [], utc_now)
 
     return stripe_charge
 
@@ -176,8 +176,8 @@ def _add_row_to_sheet(sheet_name, data, stripe_data, stripe_customer, utc_now):
         if sheet_name == 'Subscriptions':
             f_amount = '%.2f' % (stripe_data['plan']['amount'] / 100)
             f_link = 'http://dashboard.stripe.com/subscriptions/%s' %(stripe_data['id'])
-            new_row = [utc_now,data['customerName'],data['customerEmail'],f_amount,true,f_link]
-            generated_range = ("A%s:E%s" %(number_of_rows, number_of_rows))
+            new_row = [utc_now,data['customerName'],data['customerEmail'],f_amount,True,f_link,stripe_data['id']]
+            generated_range = ("A%s:G%s" %(number_of_rows, number_of_rows))
 
         cell_list = sheet.range(generated_range)
         for x, y in enumerate(new_row):
