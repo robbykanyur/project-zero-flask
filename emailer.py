@@ -10,6 +10,7 @@ from redis import Redis
 import rq
 import time
 import re
+import stripe
 
 load_dotenv()
 
@@ -39,6 +40,49 @@ def api_v1_form():
 
 
     return '200'
+
+@app.route('/api/v1/charge', methods=['GET','POST'])
+def api_v1_charge():
+    stripe.api_key = os.getenv("STRIPE")
+    if request.method == 'GET':
+        return render_template('main.html', content='<strong>Access denied.</strong><br /><br />Your IP address has been logged and this incident has been reported to the authorities.')
+
+    stripe_customer = {}
+    customer_list = stripe.Customer.list()
+
+    for i, customer in enumerate(customer_list["data"]):
+        if customer["email"] == request.json['customerEmail']:
+            stripe_customer = customer
+            break
+
+    if 'id' not in stripe_customer:
+        stripe_customer = stripe.Customer.create(
+            source="tok_visa",
+            email=request.json['customerEmail'],
+            name=request.json['customerName']
+        )
+
+    if request.json['recurring'] == True:
+        stripe_plan = stripe.Plan.create(
+            amount=request.json['amount'],
+            currency="usd",
+            interval="month",
+            product={
+                "name": "Custom recurring donation"
+            }
+        )
+        return stripe.Subscription.create(
+            customer=stripe_customer['id'],
+            plan=stripe_plan['id']
+        )
+
+    return stripe.Charge.create(
+        customer=stripe_customer['id'],
+        amount=request.json['amount'],
+        currency="usd",
+        receipt_email=request.json['customerEmail'],
+        source="tok_visa"
+    )
 
 # PRIVATE FUNCTIONS #
 
