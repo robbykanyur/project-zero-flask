@@ -37,6 +37,8 @@ def api_v1_form():
 
     if request.json['sourceForm'] == 'Contact':
         form_validates = _validate_contact_form(request.json)
+    if request.json['sourceForm'] == 'Team' or request.json['sourceForm'] == 'Serve':
+        form_validates = _validate_serve_team_forms(request.json)
 
     if form_validates == True:
         utc_now =  datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
@@ -111,27 +113,76 @@ def api_v1_charge():
 
 # PRIVATE FUNCTIONS #
 
+def _syntax_valid_email(email):
+    emailPattern = re.compile("(^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$)")
+    if emailPattern.match(email):
+        return True
+    return False
+
+def _syntax_valid_phone(phone):
+    phonePattern = re.compile("^\(\d{3}\)\d{3}-\d{4}$")
+    if phonePattern.match(phone):
+        return True
+    return False
+
+def _syntax_contains_text(text):
+    textPattern = re.compile("[\w\(\)-]+")
+    if textPattern.match(text):
+        return True
+    return False
+
 def _validate_contact_form(data):
     errors = []
     if data['formName'] == None:
         errors.append({"message": "Please enter your name."})
+    elif not _syntax_contains_text(data['formName']):
+        errors.append({"message": "Please enter your name."})
     if data['formEmail'] == None:
         errors.append({"message": "Please enter your email."})
-    emailPattern = re.compile("(^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$)")
-    if data['formEmail'] != None and not emailPattern.match(data['formEmail']):
+    elif not _syntax_contains_text(data['formEmail']):
+        errors.append({"message": "Please enter your email."})
+    elif not _syntax_valid_email(data['formEmail']):
         errors.append({"message": "Please enter a valid email."})
     if data['formPhone'] == None:
         errors.append({"message": "Please enter your phone."})
-    phonePattern = re.compile("^\(\d{3}\)\d{3}-\d{4}$")
-    if data['formPhone'] != None and not phonePattern.match(data['formPhone']):
+    elif not _syntax_contains_text(data['formPhone']):
+        errors.append({"message": "Please enter your phone."})
+    elif not _syntax_valid_phone(data['formPhone']):
         errors.append({"message": "Please enter a valid phone number."})
     if data['formMessage'] == None:
+        errors.append({"message": "Please enter your message."})
+    elif not _syntax_contains_text(data['formMessage']):
         errors.append({"message": "Please enter your message."})
 
     if len(errors) == 0:
         return True
 
     return errors
+
+def _validate_serve_team_forms(data):
+    errors = []
+    if data['formName'] == None:
+        errors.append({"message": "Please enter your name."})
+    elif not _syntax_contains_text(data['formName']):
+        errors.append({"message": "Please enter your name."})
+    if data['formEmail'] == None:
+        errors.append({"message": "Please enter your email."})
+    elif not _syntax_contains_text(data['formEmail']):
+        errors.append({"message": "Please enter your email."})
+    elif not _syntax_valid_email(data['formEmail']):
+        errors.append({"message": "Please enter a valid email."})
+    if data['formPhone'] == None:
+        errors.append({"message": "Please enter your phone."})
+    elif not _syntax_contains_text(data['formPhone']):
+        errors.append({"message": "Please enter your phone."})
+    elif not _syntax_valid_phone(data['formPhone']):
+        errors.append({"message": "Please enter a valid phone number."})
+
+    if len(errors) == 0:
+        return True
+
+    return errors
+
 
 def _filter_form_data(data):
     filtered_data = {
@@ -143,6 +194,7 @@ def _filter_form_data(data):
         "captcha": ""
     }
 
+    subNewline = r"[\n\r]"
     subEmail = r"[^A-Za-z+@.0-9!#$%&'*+-/=?^_`{|}~]"
     subPhone = r"[^0-9]"
 
@@ -156,7 +208,7 @@ def _filter_form_data(data):
         filtered_data['phone'] = re.sub(subPhone, '', data['formPhone'])
         filtered_data['phone'] = filtered_data['phone'][:3] + '-' + filtered_data['phone'][3:6] + '-' + filtered_data['phone'][6:]
     if 'formMessage' in data:
-        filtered_data['message'] = data['formMessage']
+        filtered_data['message'] = re.sub(subNewline, " ", data['formMessage'])
     if 'formCaptcha' in data:
         filtered_data['captcha'] = data['formCaptcha']
 
