@@ -33,15 +33,22 @@ def api_v1_form():
         abort(400);
     # if not request.headers.get('Authorization') == ('Bearer ' + os.getenv('AUTH')):
         # abort(403);
+    form_validates = False
 
-    utc_now =  datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
-    filtered_data = _filter_form_data(request.json)
+    if request.json['sourceForm'] == 'Contact':
+        form_validates = _validate_contact_form(request.json)
 
-    html_content = _generate_email_message(filtered_data)
-    sheets_job = app.tasks.enqueue(_add_row_to_sheet, 'Form Submissions', filtered_data, [], [], utc_now)
-    email_job = app.tasks.enqueue(_send_email, html_content, utc_now, filtered_data)
+    if form_validates == True:
+        utc_now =  datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+        filtered_data = _filter_form_data(request.json)
 
-    return json.dumps({'success':True}), 200, {'ContentType':'application/json'}
+        html_content = _generate_email_message(filtered_data)
+        sheets_job = app.tasks.enqueue(_add_row_to_sheet, 'Form Submissions', filtered_data, [], [], utc_now)
+        email_job = app.tasks.enqueue(_send_email, html_content, utc_now, filtered_data)
+
+        return json.dumps({'success':True}), 200, {'ContentType':'application/json'}
+    else:
+        return json.dumps({'success':False,'errors':form_validates}), 400, {'ContentType':'application/json'}
 
 @app.route('/api/v1/charge', methods=['GET','POST'])
 def api_v1_charge():
@@ -103,6 +110,28 @@ def api_v1_charge():
     return stripe_charge
 
 # PRIVATE FUNCTIONS #
+
+def _validate_contact_form(data):
+    errors = []
+    if data['formName'] == None:
+        errors.append({"message": "Please enter your name."})
+    if data['formEmail'] == None:
+        errors.append({"message": "Please enter your email."})
+    emailPattern = re.compile("(^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$)")
+    if data['formEmail'] != None and not emailPattern.match(data['formEmail']):
+        errors.append({"message": "Please enter a valid email."})
+    if data['formPhone'] == None:
+        errors.append({"message": "Please enter your phone."})
+    phonePattern = re.compile("^\(\d{3}\)\d{3}-\d{4}$")
+    if data['formPhone'] != None and not phonePattern.match(data['formPhone']):
+        errors.append({"message": "Please enter a valid phone number."})
+    if data['formMessage'] == None:
+        errors.append({"message": "Please enter your message."})
+
+    if len(errors) == 0:
+        return True
+
+    return errors
 
 def _filter_form_data(data):
     filtered_data = {
