@@ -62,6 +62,7 @@ def _filter_form_data(data):
         filtered_data['email'] = re.sub(subEmail, '', data['formEmail'])
     if 'formPhone' in data:
         filtered_data['phone'] = re.sub(subPhone, '', data['formPhone'])
+        filtered_data['phone'] = filtered_data['phone'][:3] + '-' + filtered_data['phone'][3:6] + '-' + filtered_data['phone'][6:]
     if 'formMessage' in data:
         filtered_data['message'] = data['formMessage']
 
