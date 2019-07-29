@@ -9,6 +9,7 @@ import datetime
 from redis import Redis
 import rq
 import time
+import re
 
 load_dotenv()
 
@@ -30,28 +31,52 @@ def api_v1_form():
         abort(403);
 
     utc_now =  datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+    filtered_data = _filter_form_data(request.json)
 
-    html_content = _generate_email_message(request.json)
-    sheets_job = app.tasks.enqueue(_add_row_to_sheet, 'Form Submissions', request.json, utc_now)
-    email_job = app.tasks.enqueue(_send_email, html_content, utc_now, request.json)
+    html_content = _generate_email_message(filtered_data)
+    sheets_job = app.tasks.enqueue(_add_row_to_sheet, 'Form Submissions', filtered_data, utc_now)
+    email_job = app.tasks.enqueue(_send_email, html_content, utc_now, filtered_data)
 
-    print(sheets_job.get_id())
-    print(email_job.get_id())
 
     return '200'
 
 # PRIVATE FUNCTIONS #
 
+def _filter_form_data(data):
+    filtered_data = {
+        "source": "",
+        "name": "",
+        "email": "",
+        "phone": "",
+        "message": ""
+    }
+
+    subEmail = r"[^A-Za-z+@.0-9!#$%&'*+-/=?^_`{|}~]"
+    subPhone = r"[^0-9]"
+
+    if 'sourceForm' in data:
+        filtered_data['source'] = data['sourceForm']
+    if 'formName' in data:
+        filtered_data['name'] = data['formName']
+    if 'formEmail' in data:
+        filtered_data['email'] = re.sub(subEmail, '', data['formEmail'])
+    if 'formPhone' in data:
+        filtered_data['phone'] = re.sub(subPhone, '', data['formPhone'])
+    if 'formMessage' in data:
+        filtered_data['message'] = data['formMessage']
+
+    return filtered_data
+
 def _generate_email_message(data):
-    if data['sourceForm'] == 'Contact':
+    if data['source'] == 'Contact':
         return(
             '<p>You should reach out to them as soon as possible. Here is their message and contact information:</p>' +
-            '<p>Name: ' + data["formName"] + '<br />Email: ' + data["formEmail"] + '<br />Message: ' + data['formMessage']
+            '<p>Name: ' + data["name"] + '<br />Email: ' + data["email"] + '<br />Phone: ' + data["phone"] + '<br />Message: ' + data['message']
         )
-    elif data['sourceForm'] == 'Team' or data['sourceForm'] == 'Serve':
+    elif data['source'] == 'Team' or data['source'] == 'Serve':
         return(
             '<p>You should reach out to them as soon as possible. Here is their contact information:</p>' +
-            '<p>Name: ' + data["formName"] + '<br />Email: ' + data["formEmail"]
+            '<p>Name: ' + data["name"] + '<br />Email: ' + data["email"] + '<br />Phone: ' + data["phone"]
         )
     else:
         return('Something went wrong.')
@@ -67,18 +92,9 @@ def _add_row_to_sheet(sheet_name, data, utc_now):
         number_of_rows = len(sheet.get_all_values()) + 1
 
         if sheet_name == 'Form Submissions':
-            new_row = ['','','','','']
-            new_row[0] = utc_now
-            if 'sourceForm' in data:
-                new_row[1] = data['sourceForm']
-            if 'formName' in data:
-                new_row[2] = data['formName']
-            if 'formEmail' in data:
-                new_row[3] = data['formEmail']
-            if 'formMessage' in data:
-                new_row[4] = data['formMessage']
+            new_row = [utc_now,data['source'],data['name'],data['email'],data['phone'],data['message']]
 
-        generated_range = ("A%s:E%s" %(number_of_rows, number_of_rows))
+        generated_range = ("A%s:F%s" %(number_of_rows, number_of_rows))
         cell_list = sheet.range(generated_range)
         for x, y in enumerate(new_row):
             cell_list[x].value = y
@@ -89,7 +105,7 @@ def _add_row_to_sheet(sheet_name, data, utc_now):
         return '500'
 
 def _send_email(html_content, utc_now, data):
-    message_source = data['sourceForm']
+    message_source = data['source']
     subject = ("New form submission from the %s page (%s)" %(message_source, utc_now))
     message = Mail(
         from_email=os.getenv("FROM_EMAIL"),
