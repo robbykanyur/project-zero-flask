@@ -37,7 +37,7 @@ def api_v1_form():
     filtered_data = _filter_form_data(request.json)
 
     html_content = _generate_email_message(filtered_data)
-    sheets_job = app.tasks.enqueue(_add_row_to_sheet, 'Form Submissions', filtered_data, utc_now)
+    sheets_job = app.tasks.enqueue(_add_row_to_sheet, 'Form Submissions', filtered_data, [], [], utc_now)
     email_job = app.tasks.enqueue(_send_email, html_content, utc_now, filtered_data)
 
     return '200'
@@ -50,6 +50,7 @@ def api_v1_charge():
 
     stripe_customer = {}
     customer_list = stripe.Customer.list()
+    utc_now =  datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
 
     if request.json['recurring'] == True:
         for i, customer in enumerate(customer_list["data"]):
@@ -72,24 +73,33 @@ def api_v1_charge():
                 "name": "Custom recurring donation"
             }
         )
-        return stripe.Subscription.create(
+        stripe_subscription = stripe.Subscription.create(
             customer=stripe_customer['id'],
             plan=stripe_plan['id']
         )
 
-        return stripe.Charge.create(
+        stripe_charge = stripe.Charge.create(
             customer=stripe_customer['id'],
             amount=request.json['amount'],
             currency="usd",
             receipt_email=request.json['customerEmail'],
         )
 
-    return stripe.Charge.create(
+        customer_info = stripe.Customer.retrieve(stripe_customer['id'])
+        donation_sheet_job = app.tasks.enqueue(_add_row_to_sheet, 'Donations', request.json, stripe_charge, customer_info, utc_now)
+        subscription_sheet_job = app.tasks.enqueue(_add_row_to_sheet, 'Subscriptions', request.json, stripe_subscription, customer_info, utc_now)
+
+    if request.json['recurring'] == False:
+        stripe_charge = stripe.Charge.create(
             amount=request.json['amount'],
             currency="usd",
             receipt_email=request.json['customerEmail'],
             source=request.json['token']['id']
         )
+
+        donatino_sheet_job = app.tasks.enqueue(_add_row_to_sheet, 'Donations', request.json, stripe_charge, [], utc_now)
+
+    return stripe_charge
 
 # PRIVATE FUNCTIONS #
 
@@ -135,7 +145,7 @@ def _generate_email_message(data):
 
 # REDIS FUNCTIONS #
 
-def _add_row_to_sheet(sheet_name, data, utc_now):
+def _add_row_to_sheet(sheet_name, data, stripe_data, stripe_customer, utc_now):
     try:
         sheet = gspread.authorize(ServiceAccountCredentials.from_json_keyfile_name(
             './client_secret.json',
@@ -146,7 +156,29 @@ def _add_row_to_sheet(sheet_name, data, utc_now):
         if sheet_name == 'Form Submissions':
             new_row = [utc_now,data['source'],data['name'],data['email'],data['phone'],data['message']]
 
-        generated_range = ("A%s:F%s" %(number_of_rows, number_of_rows))
+            generated_range = ("A%s:F%s" %(number_of_rows, number_of_rows))
+            cell_list = sheet.range(generated_range)
+            for x, y in enumerate(new_row):
+                cell_list[x].value = y
+            sheet.update_cells(cell_list)
+
+        if sheet_name == 'Donations':
+            f_amount = '%.2f' % (stripe_data['amount'] / 100)
+
+            if data['recurring'] == False:
+                new_row = [utc_now,data['customerName'],data['customerEmail'],f_amount,stripe_data['status'],stripe_data['source']['brand'],stripe_data['source']['last4'],data['recurring'],stripe_data['receipt_url']]
+
+            if data['recurring'] == True:
+                new_row = [utc_now,stripe_customer['name'],stripe_customer['email'],f_amount,stripe_data['status'],stripe_data['source']['brand'],stripe_data['source']['last4'],data['recurring'],stripe_data['receipt_url']]
+
+            generated_range = ("A%s:J%s" %(number_of_rows, number_of_rows))
+
+        if sheet_name == 'Subscriptions':
+            f_amount = '%.2f' % (stripe_data['plan']['amount'] / 100)
+            f_link = 'http://dashboard.stripe.com/subscriptions/%s' %(stripe_data['id'])
+            new_row = [utc_now,data['customerName'],data['customerEmail'],f_amount,true,f_link]
+            generated_range = ("A%s:E%s" %(number_of_rows, number_of_rows))
+
         cell_list = sheet.range(generated_range)
         for x, y in enumerate(new_row):
             cell_list[x].value = y
