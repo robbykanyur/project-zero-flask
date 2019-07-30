@@ -201,9 +201,9 @@ def _validate_contact_form(data):
     elif not _syntax_valid_email(data['formEmail']):
         errors.append({"message": "Please enter a valid email."})
     if data['formPhone'] == None:
-        errors.append({"message": "Please enter your phone."})
+        errors.append({"message": "Please enter your phone number."})
     elif not _syntax_contains_text(data['formPhone']):
-        errors.append({"message": "Please enter your phone."})
+        errors.append({"message": "Please enter your phone number."})
     elif not _syntax_valid_phone(data['formPhone']):
         errors.append({"message": "Please enter a valid phone number."})
     if data['formMessage'] == None:
@@ -229,9 +229,9 @@ def _validate_serve_team_forms(data):
     elif not _syntax_valid_email(data['formEmail']):
         errors.append({"message": "Please enter a valid email."})
     if data['formPhone'] == None:
-        errors.append({"message": "Please enter your phone."})
+        errors.append({"message": "Please enter your phone number."})
     elif not _syntax_contains_text(data['formPhone']):
-        errors.append({"message": "Please enter your phone."})
+        errors.append({"message": "Please enter your phone number."})
     elif not _syntax_valid_phone(data['formPhone']):
         errors.append({"message": "Please enter a valid phone number."})
 
