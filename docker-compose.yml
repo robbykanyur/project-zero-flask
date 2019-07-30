@@ -1,0 +1,26 @@
+version: '2'
+
+services:
+  api:
+    restart: always
+    image: api
+    build:
+      context: .
+    volumes:
+      - ./:/home/api/src
+    expose:
+      - 5000
+    ports:
+      - '5000:5000'
+    entrypoint: ["./boot.sh"]
+    environment:
+      - FLASK_APP
+      - FLASK_ENV
+      - SENDGRID
+      - AUTH
+      - SENDGRID_ENABLED
+      - SHEETS_ENABLED
+      - FROM_EMAIL
+      - TO_EMAIL
+      - REDIS_URL
+      - STRIPE
