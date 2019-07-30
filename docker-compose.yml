@@ -13,6 +13,8 @@ services:
     ports:
       - '5000:5000'
     entrypoint: ["./boot.sh"]
+    networks: 
+      - proxy_default
     environment:
       - FLASK_APP
       - FLASK_ENV
@@ -24,3 +26,7 @@ services:
       - TO_EMAIL
       - REDIS_URL
       - STRIPE
+
+networks:
+  proxy_default:
+    external: true
