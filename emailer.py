@@ -111,6 +111,57 @@ def api_v1_charge():
 
     return stripe_charge
 
+@app.route('/api/v1/validate/customAmount', methods=['GET','POST'])
+def validate_custom_amount():
+    if request.method == 'GET':
+        return render_template('main.html', content='<strong>Access denied.</strong><br /><br />Your IP address has been logged and this incident has been reported to the authorities.')
+    if not request.json and 'customAmount' not in request.json:
+        abort(400);
+
+    value = 0
+    errors = []
+    if request.json['customAmount'] == None or request.json['customAmount'] == 0:
+        errors.append({"message": "Please enter an amount."})
+    else:
+        value = re.sub(r"[^0-9]", '', request.json['customAmount'])
+
+    if not _syntax_contains_number(value):
+        errors.append({"message": "Please enter a valid amount."})
+
+    if len(errors) == 0:
+        return json.dumps({'success':True}), 200, {'ContentType':'application/json'}
+
+    return json.dumps({'success':False,'errors':errors}), 400, {'ContentType':'application/json'}
+
+@app.route('/api/v1/validate/paymentInformation', methods=['GET','POST'])
+def validate_payment_information():
+    if request.method == 'GET':
+        return render_template('main.html', content='<strong>Access denied.</strong><br /><br />Your IP address has been logged and this incident has been reported to the authorities.')
+    if not request.json and 'customAmount' not in request.json:
+        abort(400);
+
+    errors = []
+    data = request.json
+
+    if data['formName'] == None:
+        errors.append({"message": "Please enter your name."})
+    elif not _syntax_contains_text(data['formName']):
+        errors.append({"message": "Please enter your name."})
+    if data['formEmail'] == None:
+        errors.append({"message": "Please enter your email."})
+    elif not _syntax_contains_text(data['formEmail']):
+        errors.append({"message": "Please enter your email."})
+    elif not _syntax_valid_email(data['formEmail']):
+        errors.append({"message": "Please enter a valid email."})
+    if data['cardModified'] == False:
+        errors.append({"message": "Please enter your card information."})
+
+    if len(errors) == 0:
+        return json.dumps({'success':True}), 200, {'ContentType':'application/json'}
+
+    return json.dumps({'success':False,'errors':errors}), 400, {'ContentType':'application/json'}
+
+
 # PRIVATE FUNCTIONS #
 
 def _syntax_valid_email(email):
@@ -128,6 +179,12 @@ def _syntax_valid_phone(phone):
 def _syntax_contains_text(text):
     textPattern = re.compile("[\w\(\)-]+")
     if textPattern.match(text):
+        return True
+    return False
+
+def _syntax_contains_number(number):
+    numberPattern = re.compile("[\d]+")
+    if numberPattern.match(str(number)):
         return True
     return False
 
@@ -182,7 +239,6 @@ def _validate_serve_team_forms(data):
         return True
 
     return errors
-
 
 def _filter_form_data(data):
     filtered_data = {
