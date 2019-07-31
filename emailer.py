@@ -96,7 +96,6 @@ def api_v1_charge():
         )
 
         customer_info = stripe.Customer.retrieve(stripe_customer['id'])
-        donations_sheets_job = app.tasks.enqueue(_add_row_to_sheet, 'Donations', request.json, stripe_charge, customer_info, utc_now)
         subscriptions_sheets_job = app.tasks.enqueue(_add_row_to_sheet, 'Subscriptions', request.json, stripe_subscription, customer_info, utc_now)
 
     if request.json['recurring'] == False:
@@ -177,7 +176,7 @@ def _update_subscription_sheet(data):
 
     for index, value in enumerate(values):
         value.append(index)
-    sub = list(filter(lambda x: x[7] == data['data']['object']['id'], values))
+    sub = list(filter(lambda x: x[7] == data['data']['object']['id'], value))
 
     if len(sub) > 0:
         sub = sub[0]
@@ -341,15 +340,9 @@ def _add_row_to_sheet(sheet_name, data, stripe_data, stripe_customer, utc_now):
             sheet.update_cells(cell_list)
 
         if sheet_name == 'Donations':
-            f_amount = '%.2f' % (stripe_data['amount'] / 100)
-
-            if data['recurring'] == False:
-                new_row = [utc_now,data['customerName'],data['customerEmail'],f_amount,stripe_data['status'],stripe_data['source']['brand'],stripe_data['source']['last4'],data['recurring'],stripe_data['receipt_url']]
-
-            if data['recurring'] == True:
-                new_row = [utc_now,stripe_customer['name'],stripe_customer['email'],f_amount,stripe_data['status'],stripe_data['source']['brand'],stripe_data['source']['last4'],data['recurring'],stripe_data['receipt_url']]
-
-            generated_range = ("A%s:J%s" %(number_of_rows, number_of_rows))
+                f_amount = '%.2f' % (stripe_data['amount'] / 100)
+                generated_range = ("A%s:H%s" %(number_of_rows, number_of_rows))
+                new_row = [utc_now,data['customerName'],data['customerEmail'],f_amount,stripe_data['status'],stripe_data['source']['brand'],stripe_data['source']['last4'],stripe_data['receipt_url']]
 
         if sheet_name == 'Subscriptions':
             f_amount = '%.2f' % (stripe_data['plan']['amount'] / 100)
