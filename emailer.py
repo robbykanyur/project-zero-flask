@@ -166,10 +166,39 @@ def api_stripe_subscription():
     if request.method == 'GET':
         return render_template('main.html', content='<strong>Access denied.</strong><br /><br />Your IP address has been logged and this incident has been reported to the authorities.')
 
-    print(request.json)
+    update_subscription_job = app.tasks.enqueue(_update_subscription_sheet, request.json)
     return json.dumps({'success':True}), 200, {'ContentType':'application/json'}
 
 # PRIVATE FUNCTIONS #
+
+def _update_subscription_sheet(data):
+    sheet = _google_sheet_authenticate().worksheet('Subscriptions')
+    values = sheet.get_all_values()
+
+    for index, value in enumerate(values):
+        value.append(index)
+    sub = list(filter(lambda x: x[6] == data['data']['object']['id'], values))
+
+    if len(sub) > 0:
+        sub = sub[0]
+        if data['data']['object']['status'] != 'active':
+            sub[3] = 0
+            sub[4] = False
+            sub[8] = datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+
+            generated_range = ("A%s:I%s" %(sub[9] + 1, sub[9] + 1))
+            cell_list = sheet.range(generated_range)
+            for i in range(len(sub) - 1):
+                cell_list[i].value = sub[i]
+            sheet.update_cells(cell_list)
+
+    return True
+
+def _google_sheet_authenticate():
+    return(gspread.authorize(ServiceAccountCredentials.from_json_keyfile_name(
+        './client_secret.json',
+        ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
+    )).open_by_key("1kKqs94jLBiiatyjpx-t7kf4N2RpzjuiyPWOrqkQPI08"))
 
 def _syntax_valid_email(email):
     emailPattern = re.compile("(^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$)")
@@ -295,10 +324,7 @@ def _generate_email_message(data):
 
 def _add_row_to_sheet(sheet_name, data, stripe_data, stripe_customer, utc_now):
     try:
-        sheet = gspread.authorize(ServiceAccountCredentials.from_json_keyfile_name(
-            './client_secret.json',
-            ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
-        )).open_by_key("1kKqs94jLBiiatyjpx-t7kf4N2RpzjuiyPWOrqkQPI08").worksheet(sheet_name)
+        sheet = _google_sheet_authenticate().worksheet(sheet_name)
         number_of_rows = len(sheet.get_all_values()) + 1
 
         if sheet_name == 'Form Submissions':
@@ -328,8 +354,8 @@ def _add_row_to_sheet(sheet_name, data, stripe_data, stripe_customer, utc_now):
         if sheet_name == 'Subscriptions':
             f_amount = '%.2f' % (stripe_data['plan']['amount'] / 100)
             f_link = 'http://dashboard.stripe.com/subscriptions/%s' %(stripe_data['id'])
-            new_row = [utc_now,data['customerName'],data['customerEmail'],f_amount,True,f_link,stripe_data['id']]
-            generated_range = ("A%s:G%s" %(number_of_rows, number_of_rows))
+            new_row = [utc_now,data['customerName'],data['customerEmail'],f_amount,True,f_link,stripe_data['id'],stripe_data['customer'],utc_now]
+            generated_range = ("A%s:I%s" %(number_of_rows, number_of_rows))
 
         cell_list = sheet.range(generated_range)
         for x, y in enumerate(new_row):
