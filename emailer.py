@@ -177,7 +177,7 @@ def _update_subscription_sheet(data):
 
     for index, value in enumerate(values):
         value.append(index)
-    sub = list(filter(lambda x: x[6] == data['data']['object']['id'], values))
+    sub = list(filter(lambda x: x[7] == data['data']['object']['id'], values))
 
     if len(sub) > 0:
         sub = sub[0]
@@ -353,8 +353,8 @@ def _add_row_to_sheet(sheet_name, data, stripe_data, stripe_customer, utc_now):
 
         if sheet_name == 'Subscriptions':
             f_amount = '%.2f' % (stripe_data['plan']['amount'] / 100)
-            f_link = 'http://dashboard.stripe.com/subscriptions/%s' %(stripe_data['id'])
-            new_row = [utc_now,data['customerName'],data['customerEmail'],f_amount,True,f_link,stripe_data['id'],stripe_data['customer'],utc_now]
+            f_link = 'http://dashboard.stripe.com/customers/%s' %(stripe_data['customer'])
+            new_row = [utc_now,data['customerName'],data['customerEmail'],f_amount,True,f_link,stripe_data['customer'],stripe_data['id'],utc_now]
             generated_range = ("A%s:I%s" %(number_of_rows, number_of_rows))
 
         cell_list = sheet.range(generated_range)
