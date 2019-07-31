@@ -1,11 +1,29 @@
 version: '2'
 
 services:
+  redis:
+    image: 'redis:5.0.5-alpine'
+    command: 'redis-server'
+    ports:
+      - '6379:6379' 
+    networks:
+      - zero_net
+  rq-worker:
+    image: 'rq-worker'
+    networks:
+      - zero_net
+    command: 'rq worker -u redis://redis:6379 emailer-tasks'
+    environment:
+      - REDIS_URL=redis://redis:6379
+    volumes: 
+      - ./:/usr/src/app
   api:
     restart: always
     image: api
     build:
       context: .
+    depends_on:
+      - "redis"
     volumes:
       - ./:/home/api/src
     expose:
@@ -14,7 +32,7 @@ services:
       - '5000:5000'
     entrypoint: ["./boot.sh"]
     networks: 
-      - proxy_default
+      - zero_net
     environment:
       - FLASK_APP
       - FLASK_ENV
@@ -24,9 +42,9 @@ services:
       - SHEETS_ENABLED
       - FROM_EMAIL
       - TO_EMAIL
-      - REDIS_URL
+      - REDIS_URL=redis://redis:6379
       - STRIPE
 
 networks:
-  proxy_default:
+  zero_net:
     external: true
