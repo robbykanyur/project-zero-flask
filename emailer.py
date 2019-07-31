@@ -161,6 +161,13 @@ def validate_payment_information():
 
     return json.dumps({'success':False,'errors':errors}), 400, {'ContentType':'application/json'}
 
+@app.route('/api/v1/stripe/subscription', methods=['GET','POST'])
+def api_stripe_subscription():
+    if request.method == 'GET':
+        return render_template('main.html', content='<strong>Access denied.</strong><br /><br />Your IP address has been logged and this incident has been reported to the authorities.')
+
+    print(request.json)
+    return json.dumps({'success':True}), 200, {'ContentType':'application/json'}
 
 # PRIVATE FUNCTIONS #
 
