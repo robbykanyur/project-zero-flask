@@ -88,15 +88,9 @@ def api_v1_charge():
             plan=stripe_plan['id']
         )
 
-        stripe_charge = stripe.Charge.create(
-            customer=stripe_customer['id'],
-            amount=request.json['amount'],
-            currency="usd",
-            receipt_email=request.json['customerEmail'],
-        )
-
         customer_info = stripe.Customer.retrieve(stripe_customer['id'])
         subscriptions_sheets_job = app.tasks.enqueue(_add_row_to_sheet, 'Subscriptions', request.json, stripe_subscription, customer_info, utc_now)
+        return json.dumps({'success':True}), 200, {'ContentType':'application/json'}
 
     if request.json['recurring'] == False:
         stripe_charge = stripe.Charge.create(
@@ -107,8 +101,8 @@ def api_v1_charge():
         )
 
         donations_sheets_job = app.tasks.enqueue(_add_row_to_sheet, 'Donations', request.json, stripe_charge, [], utc_now)
+        return json.dumps({'success':True}), 200, {'ContentType':'application/json'}
 
-    return stripe_charge
 
 @app.route('/api/v1/validate/customAmount', methods=['GET','POST'])
 def validate_custom_amount():
@@ -173,10 +167,12 @@ def api_stripe_subscription():
 def _update_subscription_sheet(data):
     sheet = _google_sheet_authenticate().worksheet('Subscriptions')
     values = sheet.get_all_values()
+    sub = []
 
     for index, value in enumerate(values):
         value.append(index)
-    sub = list(filter(lambda x: x[7] == data['data']['object']['id'], value))
+        if data['data']['object']['id'] == value[7]:
+            sub.append(value)
 
     if len(sub) > 0:
         sub = sub[0]
