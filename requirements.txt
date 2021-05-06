@@ -4,7 +4,7 @@ chardet==3.0.4
 Click==7.0
 croniter==0.3.30
 Flask==1.1.1
-Flask-Cors==3.0.8
+Flask-Cors==3.0.9
 Flask-RQ2==18.3
 google-api-python-client==1.7.10
 google-auth==1.6.3
